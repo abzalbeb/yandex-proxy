@@ -1,14 +1,14 @@
-// server.js
 const express = require('express');
-const puppeteer = require('puppeteer');
 const fs = require('fs');
+const chromium = require('chrome-aws-lambda');
+const puppeteer = require('puppeteer-core');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const CACHE_FILE = './video_cache.json';
-const CACHE_EXPIRY = 3600000; // 1 soat
 const CONFIG_FILE = './config.json';
+const CACHE_EXPIRY = 3600000; // 1 soat
 
 app.use(express.json());
 
@@ -34,16 +34,19 @@ function writeCacheEntry(videoUrl, iframeUrl) {
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
-// Puppeteer bilan iframe olish
+// Puppeteer bilan iframe olish (chrome-aws-lambda bilan)
 async function parseVideoUrl(videoPageUrl) {
   const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox','--disable-setuid-sandbox']
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath || '/usr/bin/chromium-browser',
+    headless: chromium.headless,
   });
+
   const page = await browser.newPage();
   await page.setRequestInterception(true);
   page.on('request', req =>
-    ['document','iframe'].includes(req.resourceType())
+    ['document', 'iframe'].includes(req.resourceType())
       ? req.continue()
       : req.abort()
   );
@@ -59,7 +62,7 @@ async function parseVideoUrl(videoPageUrl) {
   }
 }
 
-// --- POST /update-url: defaultVideoUrl ni o'zgartirish ---
+// --- POST /update-url: defaultVideoUrl ni o‘zgartirish ---
 app.post('/update-url', (req, res) => {
   const { newUrl } = req.body;
   if (!newUrl?.startsWith('https://yandex.ru/video/preview/')) {
@@ -96,10 +99,11 @@ app.get('/current-url', async (req, res) => {
   }
 });
 
-// --- (ixtiyoriy) bosh sahifa: iframe bilan render ---
+// --- Bosh sahifa iframe bilan render ---
 app.get('/', async (req, res) => {
   try {
-    const { iframeUrl } = (await (await fetch(`http://localhost:${PORT}/current-url`)).json());
+    const response = await fetch(`http://localhost:${PORT}/current-url`);
+    const { iframeUrl } = await response.json();
     res.send(`
       <!DOCTYPE html>
       <html>
