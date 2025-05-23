@@ -95,6 +95,7 @@ app.post('/update-url', (req, res) => {
 });
 
 // HTML sahifa
+// HTML sahifa
 app.get('/', async (req, res) => {
   const { defaultVideoUrl } = readConfig();
 
@@ -123,7 +124,10 @@ app.get('/', async (req, res) => {
         </style>
       </head>
       <body>
-        <iframe src="${iframeUrl}" width="800" height="450" allowfullscreen></iframe>      </body>
+        <h3>Rutube iframe:</h3>
+        <iframe src="${iframeUrl}" width="800" height="450" allowfullscreen></iframe>
+        <p>Video manzili: <a href="${defaultVideoUrl}" target="_blank">${defaultVideoUrl}</a></p>
+      </body>
       </html>
     `);
   } catch (err) {
