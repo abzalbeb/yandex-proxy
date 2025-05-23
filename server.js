@@ -1,120 +1,136 @@
 const express = require('express');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
-const chromium = require('chrome-aws-lambda');
-const puppeteer = require('puppeteer-core');
+const path = require('path');
+const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 const CACHE_FILE = './video_cache.json';
-const CONFIG_FILE = './config.json';
 const CACHE_EXPIRY = 3600000; // 1 soat
+const CONFIG_FILE = './config.json';
 
+app.use(cors()); // Barcha domenlarga ruxsat berish
 app.use(express.json());
 
-// Config o‘qish/yozish
+// JSON fayldan config o‘qish
 function readConfig() {
-  return fs.existsSync(CONFIG_FILE)
-    ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
-    : { defaultVideoUrl: '' };
-}
-function writeConfig(cfg) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  if (fs.existsSync(CONFIG_FILE)) {
+    return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  }
+  return { defaultVideoUrl: '' };
 }
 
-// Cache o‘qish/yozish
-function readCache() {
-  return fs.existsSync(CACHE_FILE)
-    ? JSON.parse(fs.readFileSync(CACHE_FILE))
-    : {};
+// JSON faylga config yozish
+function writeConfig(newConfig) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(newConfig, null, 2));
 }
+
+// Cache o‘qish
+function readCache() {
+  if (fs.existsSync(CACHE_FILE)) {
+    return JSON.parse(fs.readFileSync(CACHE_FILE));
+  }
+  return {};
+}
+
+// Cache yozish
 function writeCacheEntry(videoUrl, iframeUrl) {
   const cache = readCache();
-  cache[videoUrl] = { url: iframeUrl, timestamp: Date.now() };
+  cache[videoUrl] = {
+    url: iframeUrl,
+    timestamp: Date.now()
+  };
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
-// Puppeteer bilan iframe olish (chrome-aws-lambda bilan)
+// Puppeteer orqali iframe olish
 async function parseVideoUrl(videoPageUrl) {
   const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath || '/usr/bin/chromium-browser',
-    headless: chromium.headless,
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    timeout: 30000
   });
 
   const page = await browser.newPage();
   await page.setRequestInterception(true);
-  page.on('request', req =>
-    ['document', 'iframe'].includes(req.resourceType())
-      ? req.continue()
-      : req.abort()
-  );
+  page.on('request', req => {
+    ['document', 'iframe'].includes(req.resourceType()) ? req.continue() : req.abort();
+  });
 
   try {
-    await page.goto(videoPageUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(videoPageUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000
+    });
+
     const iframeUrl = await page.$eval('iframe[src*="rutube"]', el => el.src);
     await browser.close();
     return iframeUrl;
-  } catch (e) {
+  } catch (err) {
     await browser.close();
-    throw e;
+    throw err;
   }
 }
 
-// --- POST /update-url: defaultVideoUrl ni o‘zgartirish ---
-app.post('/update-url', (req, res) => {
-  const { newUrl } = req.body;
-  if (!newUrl?.startsWith('https://yandex.ru/video/preview/')) {
-    return res.status(400).json({ error: 'Yaroqsiz URL format' });
-  }
-  const cfg = readConfig();
-  cfg.defaultVideoUrl = newUrl;
-  writeConfig(cfg);
-  res.json({ message: 'defaultVideoUrl yangilandi', url: newUrl });
+// GET - Hozirgi URL
+app.get('/current-url', (req, res) => {
+  const config = readConfig();
+  res.json({ url: config.defaultVideoUrl });
 });
 
-// --- GET /current-url: iframeUrl qaytaradi ---
-app.get('/current-url', async (req, res) => {
-  const { defaultVideoUrl } = readConfig();
-  if (!defaultVideoUrl) {
-    return res.status(404).json({ error: 'defaultVideoUrl topilmadi' });
+// POST - URL yangilash
+app.post('/update-url', (req, res) => {
+  const { newUrl } = req.body;
+  if (!newUrl || !newUrl.startsWith('https://yandex.ru/video/preview/')) {
+    return res.status(400).json({ error: 'Yaroqsiz URL format' });
   }
+
+  const config = readConfig();
+  config.defaultVideoUrl = newUrl;
+  writeConfig(config);
+
+  res.json({ message: 'URL yangilandi', url: newUrl });
+});
+
+// HTML sahifa
+app.get('/', async (req, res) => {
+  const { defaultVideoUrl } = readConfig();
 
   try {
     const cache = readCache();
     const entry = cache[defaultVideoUrl];
     let iframeUrl;
 
-    if (entry && (Date.now() - entry.timestamp) < CACHE_EXPIRY) {
+    if (entry && (Date.now() - entry.timestamp < CACHE_EXPIRY)) {
       iframeUrl = entry.url;
     } else {
       iframeUrl = await parseVideoUrl(defaultVideoUrl);
       writeCacheEntry(defaultVideoUrl, iframeUrl);
     }
 
-    res.json({ iframeUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Bosh sahifa iframe bilan render ---
-app.get('/', async (req, res) => {
-  try {
-    const response = await fetch(`http://localhost:${PORT}/current-url`);
-    const { iframeUrl } = await response.json();
+    res.set('Content-Type', 'text/html');
     res.send(`
       <!DOCTYPE html>
       <html>
-      <head><meta charset="utf-8"><title>Video</title></head>
+      <head>
+        <meta charset="UTF-8">
+        <title>Rutube iframe</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; }
+          iframe { border: none; margin-top: 10px; }
+        </style>
+      </head>
       <body>
+        <h3>Rutube iframe:</h3>
         <iframe src="${iframeUrl}" width="800" height="450" allowfullscreen></iframe>
+        <p>Video manzili: <a href="${defaultVideoUrl}" target="_blank">${defaultVideoUrl}</a></p>
       </body>
       </html>
     `);
-  } catch {
-    res.redirect('/current-url');
+  } catch (err) {
+    res.status(500).send(`<h1>Xato: ${err.message}</h1>`);
   }
 });
 
