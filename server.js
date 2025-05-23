@@ -94,45 +94,7 @@ app.post('/update-url', (req, res) => {
   res.json({ message: 'URL yangilandi', url: newUrl });
 });
 
-// HTML sahifa
-app.get('/', async (req, res) => {
-  const { defaultVideoUrl } = readConfig();
 
-  try {
-    const cache = readCache();
-    const entry = cache[defaultVideoUrl];
-    let iframeUrl;
-
-    if (entry && (Date.now() - entry.timestamp < CACHE_EXPIRY)) {
-      iframeUrl = entry.url;
-    } else {
-      iframeUrl = await parseVideoUrl(defaultVideoUrl);
-      writeCacheEntry(defaultVideoUrl, iframeUrl);
-    }
-
-    res.set('Content-Type', 'text/html');
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Rutube iframe</title>
-        <style>
-          body { font-family: sans-serif; padding: 20px; }
-          iframe { border: none; margin-top: 10px; }
-        </style>
-      </head>
-      <body>
-        <h3>Rutube iframe:</h3>
-        <iframe src="${iframeUrl}" width="800" height="450" allowfullscreen></iframe>
-        <p>Video manzili: <a href="${defaultVideoUrl}" target="_blank">${defaultVideoUrl}</a></p>
-      </body>
-      </html>
-    `);
-  } catch (err) {
-    res.status(500).send(`<h1>Xato: ${err.message}</h1>`);
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`Server http://localhost:${PORT} da ishlayapti`);
