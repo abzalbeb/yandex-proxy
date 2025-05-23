@@ -1,9 +1,9 @@
 const express = require('express');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const chromium = require('chrome-aws-lambda');
+
 
 const app = express();
 const PORT = 3000;
@@ -50,9 +50,8 @@ function writeCacheEntry(videoUrl, iframeUrl) {
 // Puppeteer orqali iframe olish
 async function parseVideoUrl(videoPageUrl) {
   const browser = await puppeteer.launch({
-    args: chromium.args,
-    executablePath: await chromium.executablePath || '/usr/bin/google-chrome',
-    headless: chromium.headless,
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
   const page = await browser.newPage();

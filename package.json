@@ -1,22 +1,18 @@
 {
   "name": "project-5",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "echo \"Skipping puppeteer install for Render (using chrome-aws-lambda)\""
+    "start": "node server.js",
+    "postinstall": "puppeteer install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
-    "chrome-aws-lambda": "^10.1.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "puppeteer-core": "^24.9.0"
+    "puppeteer": "^21.3.8"
   }
 }
