@@ -47,11 +47,11 @@ function writeCacheEntry(videoUrl, iframeUrl) {
 
 // Puppeteer orqali iframe olish
 async function parseVideoUrl(videoPageUrl) {
+
 const browser = await puppeteer.launch({
   headless: true,
-  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-  args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  timeout: 30000
+  executablePath: process.env.CHROME_BINARY_PATH || '/usr/bin/google-chrome', // fallback
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
 });
 
   const page = await browser.newPage();
