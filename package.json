@@ -1,17 +1,22 @@
 {
-  "name": "yandex-proxy",
+  "name": "project-5",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js",
+    "postinstall": "echo \"Skipping puppeteer install for Render (using chrome-aws-lambda)\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "chrome-aws-lambda": "^10.1.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "puppeteer": "^21.3.8"
+    "puppeteer-core": "^24.9.0"
   }
 }

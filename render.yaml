@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: yandex-proxy
-    env: node
-    buildCommand: "./render-build.sh"
-    startCommand: "node server.js"
-    envVars:
-      - key: PUPPETEER_EXECUTABLE_PATH
-        value: "/opt/render/.cache/puppeteer/chrome/linux-136.0.7103.94/chrome-linux64/chrome"
