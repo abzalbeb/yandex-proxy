@@ -48,8 +48,9 @@ function writeCacheEntry(videoUrl, iframeUrl) {
 // Puppeteer orqali iframe olish
 async function parseVideoUrl(videoPageUrl) {
   const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    timeout: 30000
   });
 
   const page = await browser.newPage();
@@ -73,31 +74,11 @@ async function parseVideoUrl(videoPageUrl) {
   }
 }
 
-// GET - Rutube iframe URL ni qaytaradi
-app.get('/current-url', async (req, res) => {
-  const { defaultVideoUrl } = readConfig();
-  if (!defaultVideoUrl) {
-    return res.status(404).json({ error: 'defaultVideoUrl topilmadi' });
-  }
-
-  try {
-    const cache = readCache();
-    const entry = cache[defaultVideoUrl];
-    let iframeUrl;
-
-    if (entry && (Date.now() - entry.timestamp < CACHE_EXPIRY)) {
-      iframeUrl = entry.url;
-    } else {
-      iframeUrl = await parseVideoUrl(defaultVideoUrl);
-      writeCacheEntry(defaultVideoUrl, iframeUrl);
-    }
-
-    res.json({ iframeUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// GET - Hozirgi URL
+app.get('/current-url', (req, res) => {
+  const config = readConfig();
+  res.json({ url: config.defaultVideoUrl });
 });
-
 
 // POST - URL yangilash
 app.post('/update-url', (req, res) => {
